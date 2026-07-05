@@ -87,7 +87,7 @@ void loop()
     Serial1.flush();
     Serial1.println(F("REQ"));
     Serial1.flush();
-    Serial.println(F("Permintaan REQ terkirim ke SensorPod"));
+    Serial.println(F("Sending Request"));
   }
 
   while (Serial1.available())
@@ -106,13 +106,19 @@ void loop()
           const int soil1 = line.substring(0, comma).toInt();
           const int soil2 = line.substring(comma + 1).toInt();
 
-          Serial.print(F("Data diterima: "));
-          Serial.print(soil1);
-          Serial.print(F(", "));
+          Serial.println(F("Data Sensor"));
+          Serial.print(F("S1: "));
+          Serial.println(soil1);
+          Serial.print(F("S2: "));
           Serial.println(soil2);
 
           sendSensorData(static_cast<uint8_t>(soil1), static_cast<uint8_t>(soil2));
         }
+      }
+      else if (line.length() > 0)
+      {
+        Serial.print(F("RX Raw: "));
+        Serial.println(line);
       }
       line.clear();
     }
