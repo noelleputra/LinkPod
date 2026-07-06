@@ -1,20 +1,15 @@
 #include <Arduino.h>
 #include <cctype>
 #include <cstring>
+#include "config/config.h"
 
-namespace {
-constexpr uint32_t kBaudRate = 9600;
-constexpr uint8_t kSensorNodeId = 2;
-constexpr uint32_t kRequestIntervalMs = 5000;
-constexpr size_t kLineBufferSize = 64;
 
 void sendRequestToSensorPod() {
   Serial1.print("R");
-  Serial1.println(kSensorNodeId);
+  Serial1.println(config::NODE_ID);
   Serial1.flush();
-
   Serial.print("Request sent: R");
-  Serial.println(kSensorNodeId);
+  Serial.println(config::NODE_ID);
 }
 
 bool parseSensorResponse(const char* line, uint8_t& soil1, uint8_t& soil2) {
@@ -47,25 +42,24 @@ bool parseSensorResponse(const char* line, uint8_t& soil1, uint8_t& soil2) {
   soil2 = static_cast<uint8_t>(parsedSoil2);
   return true;
 }
-}  // namespace
 
 void setup() {
-  Serial.begin(kBaudRate);
+  Serial.begin(config::UART_BAUD);
   Serial.println("LinkPod ready");
 
   pinMode(20, INPUT);
   pinMode(21, OUTPUT);
-  Serial1.begin(kBaudRate, SERIAL_8N1, 20, 21);
+  Serial1.begin(config::UART_BAUD, SERIAL_8N1, 20, 21);
   delay(100);
 }
 
 void loop() {
   static uint32_t lastRequestMs = 0;
-  static char line[kLineBufferSize];
+  static char line[config::LINE_BUFFER_SIZE];
   static size_t lineLength = 0;
 
   const uint32_t now = millis();
-  if (now - lastRequestMs >= kRequestIntervalMs) {
+  if (now - lastRequestMs >= config::REQUEST_INTERVAL_MS) {
     lastRequestMs = now;
     sendRequestToSensorPod();
   }
@@ -93,7 +87,7 @@ void loop() {
 
       lineLength = 0;
     } else if (c != '\r') {
-      if (lineLength < kLineBufferSize - 1) {
+      if (lineLength < config::LINE_BUFFER_SIZE - 1) {
         line[lineLength++] = c;
       }
     }
