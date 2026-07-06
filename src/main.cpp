@@ -1,130 +1,101 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <esp_now.h>
+#include <cctype>
 #include <cstring>
 
-struct SensorPacket
-{
-  uint8_t nodeId;
-  uint8_t soil1;
-  uint8_t soil2;
-  uint32_t timestamp;
-};
+namespace {
+constexpr uint32_t kBaudRate = 9600;
+constexpr uint8_t kSensorNodeId = 2;
+constexpr uint32_t kRequestIntervalMs = 5000;
+constexpr size_t kLineBufferSize = 64;
 
-static constexpr uint8_t kNodeId = 1;
-static constexpr uint8_t kBroadcastAddress[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+void sendRequestToSensorPod() {
+  Serial1.print("R");
+  Serial1.println(kSensorNodeId);
+  Serial1.flush();
 
-void onDataSent(const uint8_t *macAddr, esp_now_send_status_t status)
-{
-  Serial.print(F("ESP-NOW status: "));
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? F("OK") : F("FAILED"));
-  (void)macAddr;
+  Serial.print("Request sent: R");
+  Serial.println(kSensorNodeId);
 }
 
-void sendSensorData(uint8_t soil1, uint8_t soil2)
-{
-  SensorPacket packet{};
-  packet.nodeId = kNodeId;
-  packet.soil1 = soil1;
-  packet.soil2 = soil2;
-  packet.timestamp = millis();
-
-  esp_err_t result = esp_now_send(const_cast<uint8_t *>(kBroadcastAddress), reinterpret_cast<uint8_t *>(&packet), sizeof(packet));
-  if (result != ESP_OK)
-  {
-    Serial.print(F("Gagal mengirim ESP-NOW: "));
-    Serial.println(result);
+bool parseSensorResponse(const char* line, uint8_t& soil1, uint8_t& soil2) {
+  const char* prefix = "SensorPod";
+  if (std::strncmp(line, prefix, std::strlen(prefix)) != 0) {
+    return false;
   }
-}
 
-void setup()
-{
-  Serial.begin(9600);
-  Serial1.begin(9600, SERIAL_8N1, 20, 21);
+  const char* cursor = line + std::strlen(prefix);
+  while (*cursor != '\0' && std::isdigit(static_cast<unsigned char>(*cursor))) {
+    ++cursor;
+  }
+
+  if (*cursor != ':') {
+    return false;
+  }
+
+  char* end = nullptr;
+  const long parsedSoil1 = std::strtol(cursor + 1, &end, 10);
+  if (end == cursor + 1 || *end != ',') {
+    return false;
+  }
+
+  const long parsedSoil2 = std::strtol(end + 1, &end, 10);
+  if (end == cursor + 1 || *end != '\0') {
+    return false;
+  }
+
+  soil1 = static_cast<uint8_t>(parsedSoil1);
+  soil2 = static_cast<uint8_t>(parsedSoil2);
+  return true;
+}
+}  // namespace
+
+void setup() {
+  Serial.begin(kBaudRate);
+  Serial.println("LinkPod ready");
+
   pinMode(20, INPUT);
   pinMode(21, OUTPUT);
+  Serial1.begin(kBaudRate, SERIAL_8N1, 20, 21);
   delay(100);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-
-  if (esp_now_init() != ESP_OK)
-  {
-    Serial.println(F("Gagal menginisialisasi ESP-NOW"));
-    while (true)
-    {
-      delay(1000);
-    }
-  }
-
-  esp_now_register_send_cb(onDataSent);
-
-  esp_now_peer_info_t peerInfo{};
-  std::memcpy(peerInfo.peer_addr, kBroadcastAddress, sizeof(kBroadcastAddress));
-  peerInfo.channel = 0;
-  peerInfo.encrypt = false;
-
-  if (esp_now_add_peer(&peerInfo) != ESP_OK)
-  {
-    Serial.println(F("Gagal menambahkan peer ESP-NOW"));
-    while (true)
-    {
-      delay(1000);
-    }
-  }
-
-  Serial.println(F("LinkPod siap. Menunggu data SensorPod..."));
 }
 
-void loop()
-{
-  static uint32_t lastRequest = 0;
-  static String line;
+void loop() {
+  static uint32_t lastRequestMs = 0;
+  static char line[kLineBufferSize];
+  static size_t lineLength = 0;
 
-  if (millis() - lastRequest >= 10000)
-  {
-    lastRequest = millis();
-    Serial1.flush();
-    Serial1.println(F("REQ"));
-    Serial1.flush();
-    Serial.println(F("Sending Request"));
+  const uint32_t now = millis();
+  if (now - lastRequestMs >= kRequestIntervalMs) {
+    lastRequestMs = now;
+    sendRequestToSensorPod();
   }
 
-  while (Serial1.available())
-  {
+  while (Serial1.available()) {
     const char c = static_cast<char>(Serial1.read());
-    if (c == '\n')
-    {
-      line.trim();
-      if (line.startsWith("SensorPod:"))
-      {
-        line.remove(0, 10);
 
-        const int comma = line.indexOf(',');
-        if (comma > 0)
-        {
-          const int soil1 = line.substring(0, comma).toInt();
-          const int soil2 = line.substring(comma + 1).toInt();
+    if (c == '\n') {
+      line[lineLength] = '\0';
 
-          Serial.println(F("Data Sensor"));
-          Serial.print(F("S1: "));
-          Serial.println(soil1);
-          Serial.print(F("S2: "));
+      if (lineLength > 0) {
+        uint8_t soil1 = 0;
+        uint8_t soil2 = 0;
+
+        if (parseSensorResponse(line, soil1, soil2)) {
+          Serial.print("Sensor data => S1:");
+          Serial.print(soil1);
+          Serial.print(" S2:");
           Serial.println(soil2);
-
-          sendSensorData(static_cast<uint8_t>(soil1), static_cast<uint8_t>(soil2));
+        } else {
+          Serial.print("Raw response: ");
+          Serial.println(line);
         }
       }
-      else if (line.length() > 0)
-      {
-        Serial.print(F("RX Raw: "));
-        Serial.println(line);
+
+      lineLength = 0;
+    } else if (c != '\r') {
+      if (lineLength < kLineBufferSize - 1) {
+        line[lineLength++] = c;
       }
-      line.clear();
-    }
-    else if (c != '\r')
-    {
-      line += c;
     }
   }
 
