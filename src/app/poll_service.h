@@ -12,8 +12,12 @@ public:
     uint8_t soil2() const;
 
 private:
+    bool parseResponse(const char* buffer, uint8_t expectedNodeId);
+    void advanceToNextNode();
+
     Rs485 rs485;
     uint8_t currentNodeIndex = 0;
+    uint8_t retryCount = 0;
     uint8_t lastPolledNodeId = 0;
     uint8_t soil1Value = 0;
     uint8_t soil2Value = 0;

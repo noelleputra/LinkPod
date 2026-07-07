@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "config/config.h"
+#include "config/protocol.h"
 
 void PollService::begin()
 {
@@ -15,28 +16,74 @@ bool PollService::update()
     if ((now - lastPollAtMs) < config::REQUEST_INTERVAL_MS) {
         return false;
     }
-
     lastPollAtMs = now;
 
     const uint8_t targetNodeId = config::POLL_NODE_IDS[currentNodeIndex];
     rs485.sendRequest(targetNodeId);
 
     char buffer[64] = {0};
-    if (!rs485.readResponse(buffer, sizeof(buffer))) {
+    const bool gotLine = rs485.readResponse(buffer, sizeof(buffer));
+    const bool parsedOk = gotLine && parseResponse(buffer, targetNodeId);
+
+    if (parsedOk) {
+        // One line per successful poll -- enough to see soil1-4 rotating
+        // through without flooding the monitor.
+        Serial.printf("[N%u] OK soil1=%u soil2=%u\n", targetNodeId, soil1Value, soil2Value);
+        lastPolledNodeId = targetNodeId;
+        advanceToNextNode();
+        return true;
+    }
+
+    Serial.printf("[N%u] %s (retry %u/%u)\n",
+                  targetNodeId,
+                  gotLine ? "bad response" : "timeout",
+                  retryCount + 1,
+                  config::MAX_RETRIES);
+
+    // Previously nothing advanced currentNodeIndex on failure, so one
+    // dead/disconnected node could starve nodes 2-4 forever. Now we give
+    // it MAX_RETRIES attempts, then move on.
+    ++retryCount;
+    if (retryCount >= config::MAX_RETRIES) {
+        Serial.printf("[N%u] no reply after %u tries, skipping\n", targetNodeId, config::MAX_RETRIES);
+        advanceToNextNode();
+    }
+    return false;
+}
+
+void PollService::advanceToNextNode()
+{
+    retryCount = 0;
+    currentNodeIndex = static_cast<uint8_t>((currentNodeIndex + 1) % config::POLL_NODE_COUNT);
+}
+
+bool PollService::parseResponse(const char* buffer, uint8_t expectedNodeId)
+{
+    const size_t prefixLen = std::strlen(protocol::PREFIX);
+    if (std::strncmp(buffer, protocol::PREFIX, prefixLen) != 0) {
         return false;
     }
 
-    const char* prefix = "SP";
-    if (std::strncmp(buffer, prefix, std::strlen(prefix)) != 0) {
-        return false;
-    }
-
-    const char* separator = std::strchr(buffer, ':');
+    const char* separator = std::strchr(buffer, protocol::RESPONSE_DELIMITER);
     if (separator == nullptr) {
         return false;
     }
 
-    const char* comma = std::strchr(separator + 1, ',');
+    // The node id embedded between the prefix and ':' must match who we
+    // actually asked -- guards against silently accepting a stale or
+    // crossed response as if it came from the node we just polled.
+    uint8_t respondedNodeId = 0;
+    for (const char* p = buffer + prefixLen; p < separator; ++p) {
+        if (*p < '0' || *p > '9') {
+            return false;
+        }
+        respondedNodeId = static_cast<uint8_t>(respondedNodeId * 10 + (*p - '0'));
+    }
+    if (respondedNodeId != expectedNodeId) {
+        return false;
+    }
+
+    const char* comma = std::strchr(separator + 1, protocol::FIELD_DELIMITER);
     if (comma == nullptr) {
         return false;
     }
@@ -51,8 +98,6 @@ bool PollService::update()
 
     soil1Value = static_cast<uint8_t>(std::atoi(soil1Text));
     soil2Value = static_cast<uint8_t>(std::atoi(soil2Text));
-    lastPolledNodeId = targetNodeId;
-    currentNodeIndex = static_cast<uint8_t>((currentNodeIndex + 1) % config::POLL_NODE_COUNT);
     return true;
 }
 

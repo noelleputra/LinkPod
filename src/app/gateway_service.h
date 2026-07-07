@@ -12,4 +12,5 @@ public:
 private:
     PollService pollService;
     EspNow espNow;
+    bool ledState = false;
 };

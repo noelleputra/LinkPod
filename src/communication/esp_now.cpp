@@ -4,12 +4,7 @@
 #include "communication/esp_now.h"
 #include "config/protocol.h"
 
-namespace {
-constexpr uint8_t kBroadcastAddress[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-}
-
 void EspNow::begin() {
-    Serial.println("Initializing ESP-NOW...");
     WiFi.mode(WIFI_MODE_STA);
     WiFi.disconnect();
 
@@ -19,7 +14,7 @@ void EspNow::begin() {
     }
 
     esp_now_peer_info_t peerInfo{};
-    std::memcpy(peerInfo.peer_addr, kBroadcastAddress, sizeof(kBroadcastAddress));
+    std::memcpy(peerInfo.peer_addr, protocol::BROADCAST_ADDRESS, sizeof(protocol::BROADCAST_ADDRESS));
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
 
@@ -38,10 +33,14 @@ void EspNow::send(uint8_t nodeId, uint8_t soil1, uint8_t soil2) {
     packet.soil2 = soil2;
     packet.timestamp = millis();
 
-    Serial.printf("Sending ESP-NOW packet: node=%u soil1=%u soil2=%u\n", nodeId, soil1, soil2);
+    const esp_err_t result = esp_now_send(
+        const_cast<uint8_t *>(protocol::BROADCAST_ADDRESS),
+        reinterpret_cast<uint8_t *>(&packet),
+        sizeof(packet));
 
-    const esp_err_t result = esp_now_send(const_cast<uint8_t *>(kBroadcastAddress), reinterpret_cast<uint8_t *>(&packet), sizeof(packet));
+    // Success is already implied by the "[Nx] OK ..." line PollService
+    // prints -- only log here when something actually goes wrong.
     if (result != ESP_OK) {
-        Serial.printf("ESP-NOW send failed: %d\n", result);
+        Serial.printf("[N%u] ESP-NOW send failed: %d\n", nodeId, result);
     }
 }

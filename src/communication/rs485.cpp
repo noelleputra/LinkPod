@@ -2,13 +2,15 @@
 #include <cstring>
 
 #include "communication/rs485.h"
+#include "config/config.h"
+#include "config/pin.h"
 #include "config/protocol.h"
 
 void Rs485::begin(uint32_t baud, uint8_t enPin) {
     this->enPin = enPin;
     pinMode(enPin, OUTPUT);
     setReceiveMode();
-    Serial1.begin(baud, SERIAL_8N1, pin::RS485_RX, pin::RS485_TX);
+    Serial1.begin(baud, SERIAL_8N1, pin::RS485_RX_PIN, pin::RS485_TX_PIN);
 }
 
 void Rs485::setTransmitMode() {
@@ -22,29 +24,31 @@ void Rs485::setReceiveMode() {
 }
 
 void Rs485::sendRequest(uint8_t targetNodeId) {
+    // Drain any stale byte left in the hardware RX buffer before asking a
+    // new question, so a late byte from a previous exchange can't bleed
+    // into this one.
     while (Serial1.available()) {
         Serial1.read();
     }
 
     const char nodeIdDigit = static_cast<char>('0' + targetNodeId);
 
-    Serial.printf("RS485 tx %c%c\r\n", protocol::REQUEST[0], nodeIdDigit);
-
     setTransmitMode();
-    delayMicroseconds(1000);
     Serial1.write(protocol::REQUEST[0]);
     Serial1.write(nodeIdDigit);
     Serial1.write('\r');
     Serial1.write('\n');
     Serial1.flush();
-    delayMicroseconds(1000);
     setReceiveMode();
-    delay(50);
 }
 
 bool Rs485::readResponse(char* buffer, size_t bufferSize) {
-    static char line[config::LINE_BUFFER_SIZE];
-    static size_t index = 0;
+    // Local (stack) buffer, NOT static: every call is its own fresh
+    // request/response cycle. Keeping this static previously meant a
+    // partial line left over from a timed-out call could get glued onto
+    // the next call's bytes, producing corrupted-looking readings.
+    char line[config::LINE_BUFFER_SIZE];
+    size_t index = 0;
 
     const uint32_t start = millis();
     while (millis() - start < config::RESPONSE_TIMEOUT_MS) {
@@ -56,14 +60,13 @@ bool Rs485::readResponse(char* buffer, size_t bufferSize) {
 
             if (c == '\n') {
                 if (index == 0) {
-                    index = 0;
                     continue;
                 }
 
                 line[index] = '\0';
-                index = 0;
 
                 if (std::strncmp(line, protocol::PREFIX, std::strlen(protocol::PREFIX)) != 0) {
+                    index = 0;
                     continue;
                 }
 
@@ -72,17 +75,13 @@ bool Rs485::readResponse(char* buffer, size_t bufferSize) {
                     std::memcpy(buffer, line, len);
                     buffer[len] = '\0';
                 }
-
-                if (buffer != nullptr && buffer[0] != '\0') {
-                    Serial.printf("RS485 rx %s\n", buffer);
-                }
                 return true;
             }
 
             if (index < (config::LINE_BUFFER_SIZE - 1)) {
                 line[index++] = c;
             } else {
-                index = 0;
+                index = 0; // oversized/malformed line, restart just this line
             }
         }
 
