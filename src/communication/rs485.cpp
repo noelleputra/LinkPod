@@ -21,11 +21,18 @@ void Rs485::setReceiveMode() {
 }
 
 void Rs485::sendRequest(uint8_t targetNodeId) {
+    while (Serial1.available()) {
+        Serial1.read();
+    }
+
     setTransmitMode();
     Serial1.print("R");
-    Serial1.println(targetNodeId);
+    Serial1.print(targetNodeId);
+    Serial1.write('\r');
+    Serial1.write('\n');
     Serial1.flush();
     setReceiveMode();
+    delay(10);
 }
 
 bool Rs485::readResponse(char* buffer, size_t bufferSize) {
@@ -46,6 +53,10 @@ bool Rs485::readResponse(char* buffer, size_t bufferSize) {
 
             line[index] = '\0';
             index = 0;
+
+            if (std::strncmp(line, "SP", 2) != 0) {
+                continue;
+            }
 
             if (buffer != nullptr && bufferSize > 0) {
                 const size_t len = std::min<size_t>(bufferSize - 1, std::strlen(line));
