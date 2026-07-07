@@ -11,4 +11,6 @@ namespace config {
     constexpr uint8_t RS485_RX_PIN = 20;
     constexpr uint8_t RS485_TX_PIN = 21;
     constexpr uint32_t RS485_TURNAROUND_US = 200;
+    constexpr uint8_t POLL_NODE_IDS[] = {1, 2, 3, 4};
+    constexpr size_t POLL_NODE_COUNT = sizeof(POLL_NODE_IDS) / sizeof(POLL_NODE_IDS[0]);
 }
