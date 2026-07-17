@@ -1,13 +1,10 @@
 #include <algorithm>
 #include <cstring>
 
-#include <RTClib.h>
 #include "communication/rs485.h"
 #include "config/config.h"
 #include "config/pin.h"
 #include "config/protocol.h"
-
-extern RTC_PCF8563 rtc;
 
 void Rs485::begin(uint32_t baud, uint8_t enPin) {
     this->enPin = enPin;
@@ -31,20 +28,9 @@ void Rs485::sendRequest(uint8_t targetNodeId) {
         Serial1.read();
     }
 
-    // 1. Get the current time object
-    DateTime now = rtc.now();
-
-    // 2. Format it into an ASCII string (Example format: HHMMSS)
-    char timeStr[7];
-    snprintf(timeStr, sizeof(timeStr), "%02d%02d%02d", now.hour(), now.minute(), now.second());
-
     const char nodeIdDigit = static_cast<char>('0' + targetNodeId);
 
     setTransmitMode();
-    
-    // 3. Write the formatted string bytes
-    Serial1.write(timeStr); 
-    
     Serial1.write(protocol::REQUEST[0]);
     Serial1.write(nodeIdDigit);
     Serial1.write('\r');

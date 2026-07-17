@@ -8,6 +8,7 @@ void GatewayService::begin()
 
     pollService.begin();
     espNow.begin();
+    display.begin();
 }
 
 void GatewayService::loop()
@@ -22,8 +23,10 @@ void GatewayService::loop()
     ledState = !ledState;
     digitalWrite(pin::LED_PIN, ledState ? HIGH : LOW);
 
-    espNow.send(
-        pollService.nodeId(),
-        pollService.soil1(),
-        pollService.soil2());
+    const uint8_t nodeId = pollService.nodeId();
+    const uint8_t soil1 = pollService.soil1();
+    const uint8_t soil2 = pollService.soil2();
+
+    espNow.send(nodeId, soil1, soil2);
+    display.showReading(nodeId, soil1, soil2);
 }

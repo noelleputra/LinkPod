@@ -13,4 +13,8 @@ namespace config {
     constexpr size_t POLL_NODE_COUNT = sizeof(POLL_NODE_IDS) / sizeof(POLL_NODE_IDS[0]);
     constexpr uint8_t MAX_RETRIES = 3;
     constexpr uint32_t RESPONSE_TIMEOUT_MS = 200;
+
+    constexpr uint8_t DISPLAY_WIDTH = 128;
+    constexpr uint8_t DISPLAY_HEIGHT = 64;
+    constexpr uint8_t DISPLAY_I2C_ADDRESS = 0x3C;
 }

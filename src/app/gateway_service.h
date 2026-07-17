@@ -2,6 +2,7 @@
 
 #include "app/poll_service.h"
 #include "communication/esp_now.h"
+#include "drivers/display.h"
 
 class GatewayService
 {
@@ -12,5 +13,6 @@ public:
 private:
     PollService pollService;
     EspNow espNow;
+    Display display;
     bool ledState = false;
 };
