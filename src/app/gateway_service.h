@@ -15,4 +15,5 @@ private:
     EspNow espNow;
     Display display;
     bool ledState = false;
+    unsigned long lastDisplayRefreshMs = 0;
 };

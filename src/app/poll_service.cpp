@@ -1,4 +1,5 @@
 #include "app/poll_service.h"
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
@@ -8,6 +9,10 @@
 void PollService::begin()
 {
     rs485.begin();
+
+    for (uint8_t i = 0; i < config::POLL_NODE_COUNT; ++i) {
+        nodeStatuses[i].nodeId = config::POLL_NODE_IDS[i];
+    }
 }
 
 bool PollService::update()
@@ -30,6 +35,17 @@ bool PollService::update()
         // through without flooding the monitor.
         Serial.printf("[N%u] OK soil1=%u soil2=%u\n", targetNodeId, soil1Value, soil2Value);
         lastPolledNodeId = targetNodeId;
+
+        NodeStatus& status = nodeStatuses[currentNodeIndex];
+        status.soil1 = soil1Value;
+        status.soil2 = soil2Value;
+        status.everSucceeded = true;
+        status.lastSuccessMs = now;
+
+        // Any real success means the bus is alive -- whatever run of
+        // failures came before it is no longer meaningful.
+        consecutiveSkipStreak = 0;
+
         advanceToNextNode();
         return true;
     }
@@ -46,9 +62,27 @@ bool PollService::update()
     ++retryCount;
     if (retryCount >= config::MAX_RETRIES) {
         Serial.printf("[N%u] no reply after %u tries, skipping\n", targetNodeId, config::MAX_RETRIES);
+        if (consecutiveSkipStreak < UINT16_MAX) {
+            ++consecutiveSkipStreak;
+        }
         advanceToNextNode();
     }
     return false;
+}
+
+const NodeStatus& PollService::statusAt(uint8_t index) const
+{
+    return nodeStatuses[index];
+}
+
+uint8_t PollService::nodeCount()
+{
+    return config::POLL_NODE_COUNT;
+}
+
+bool PollService::commsUnhealthy() const
+{
+    return consecutiveSkipStreak >= config::COMMS_UNHEALTHY_SKIP_STREAK;
 }
 
 void PollService::advanceToNextNode()
