@@ -12,5 +12,5 @@ bool Pcf8563::begin()
 void Pcf8563::formatTime(char* buffer, size_t bufferSize)
 {
     const DateTime now = rtc.now();
-    snprintf(buffer, bufferSize, "%02d%02d%02d", now.hour(), now.minute(), now.second());
+    snprintf(buffer, bufferSize, "%02d:%02d:%02d", now.hour(), now.minute(), now.second());
 }

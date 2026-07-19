@@ -10,8 +10,8 @@ class Pcf8563
 public:
     bool begin();
 
-    // Writes "HHMMSS" (6 digits, null-terminated) into buffer. buffer
-    // must be at least 7 bytes.
+    // Writes "HH:MM:SS" (8 chars, null-terminated) into buffer. buffer
+    // must be at least 9 bytes.
     void formatTime(char* buffer, size_t bufferSize);
 
 private:

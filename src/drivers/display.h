@@ -13,13 +13,22 @@ class Display
 public:
     bool begin();
     void showStatus(const char* line);
-    void showReading(uint8_t nodeId, uint8_t soil1, uint8_t soil2);
+    void showReading(
+        uint8_t nodeId, 
+        uint8_t soil1, 
+        uint8_t soil2,
+        uint8_t soil3,
+        uint8_t soil4
+    
+    );
 
     // Persistent view: one line per node, showing its last known
     // reading plus how old it is. Meant to be called every loop tick
     // (not just on a successful poll) so a dead node visibly goes
     // stale/ERR instead of the screen just freezing on old numbers.
-    void showNodes(const NodeStatus* statuses, uint8_t count, bool commsUnhealthy);
+    // timeText is an optional pre-formatted "HH:MM:SS" string (pass
+    // nullptr or "" to omit it, e.g. before the RTC has been read yet).
+    void showNodes(const NodeStatus* statuses, uint8_t count, bool commsUnhealthy, const char* timeText = nullptr);
 
 private:
     Adafruit_SSD1306 oled{config::DISPLAY_WIDTH, config::DISPLAY_HEIGHT, &Wire, -1};

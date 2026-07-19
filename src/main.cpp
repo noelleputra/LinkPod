@@ -16,7 +16,7 @@ void setup()
     rtc.begin();
 
     Serial.println("LinkPod start");
-    gatewayService.begin();
+    gatewayService.begin(&rtc);
 }
 
 void loop()

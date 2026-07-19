@@ -11,6 +11,8 @@ struct NodeStatus
     uint8_t nodeId = 0;
     uint8_t soil1 = 0;
     uint8_t soil2 = 0;
+    uint8_t soil3 = 0;
+    uint8_t soil4 = 0;
     bool everSucceeded = false;
     unsigned long lastSuccessMs = 0;
 };
@@ -24,6 +26,8 @@ public:
     uint8_t nodeId() const;
     uint8_t soil1() const;
     uint8_t soil2() const;
+    uint8_t soil3() const;
+    uint8_t soil4() const;
 
     // Per-node last-known status, indexed 0..POLL_NODE_COUNT-1 (same
     // order as config::POLL_NODE_IDS) -- for the display's persistent
@@ -46,6 +50,8 @@ private:
     uint8_t lastPolledNodeId = 0;
     uint8_t soil1Value = 0;
     uint8_t soil2Value = 0;
+    uint8_t soil3Value = 0;
+    uint8_t soil4Value = 0;
     unsigned long lastPollAtMs = 0;
 
     NodeStatus nodeStatuses[config::POLL_NODE_COUNT];

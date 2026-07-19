@@ -26,11 +26,13 @@ void EspNow::begin() {
     Serial.println("ESP-NOW ready");
 }
 
-void EspNow::send(uint8_t nodeId, uint8_t soil1, uint8_t soil2) {
+void EspNow::send(uint8_t nodeId, uint8_t soil1, uint8_t soil2, uint8_t soil3, uint8_t soil4) {
     protocol::SensorPacket packet{};
     packet.nodeId = nodeId;
     packet.soil1 = soil1;
     packet.soil2 = soil2;
+    packet.soil3 = soil3;
+    packet.soil4 = soil4;
     packet.timestamp = millis();
 
     const esp_err_t result = esp_now_send(

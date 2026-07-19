@@ -33,12 +33,14 @@ bool PollService::update()
     if (parsedOk) {
         // One line per successful poll -- enough to see soil1-4 rotating
         // through without flooding the monitor.
-        Serial.printf("[N%u] OK soil1=%u soil2=%u\n", targetNodeId, soil1Value, soil2Value);
+        Serial.printf("[N%u] OK soil1=%u soil2=%u\n soil3=%u\n soil4=%u\n", targetNodeId, soil1Value, soil2Value, soil3Value, soil4Value);
         lastPolledNodeId = targetNodeId;
 
         NodeStatus& status = nodeStatuses[currentNodeIndex];
         status.soil1 = soil1Value;
         status.soil2 = soil2Value;
+        status.soil3 = soil3Value;
+        status.soil4 = soil4Value;
         status.everSucceeded = true;
         status.lastSuccessMs = now;
 
@@ -117,21 +119,49 @@ bool PollService::parseResponse(const char* buffer, uint8_t expectedNodeId)
         return false;
     }
 
-    const char* comma = std::strchr(separator + 1, protocol::FIELD_DELIMITER);
-    if (comma == nullptr) {
+    // Wire format is "SPn:soil1,soil2,soil3,soil4" -- walk the three
+    // FIELD_DELIMITER commas in sequence. The previous version searched
+    // for a single comma and then re-read from that same position for
+    // soil2, soil3 and soil4, so those three fields all ended up holding
+    // (a truncated copy of) the same text instead of their own value.
+    const char* field1Start = separator + 1;
+    const char* comma1 = std::strchr(field1Start, protocol::FIELD_DELIMITER);
+    if (comma1 == nullptr) {
         return false;
     }
 
+    const char* field2Start = comma1 + 1;
+    const char* comma2 = std::strchr(field2Start, protocol::FIELD_DELIMITER);
+    if (comma2 == nullptr) {
+        return false;
+    }
+
+    const char* field3Start = comma2 + 1;
+    const char* comma3 = std::strchr(field3Start, protocol::FIELD_DELIMITER);
+    if (comma3 == nullptr) {
+        return false;
+    }
+
+    const char* field4Start = comma3 + 1;
+
     char soil1Text[8] = {0};
     char soil2Text[8] = {0};
-    const size_t soil1Length = static_cast<size_t>(comma - (separator + 1));
-    const size_t soil2Length = std::strlen(comma + 1);
+    char soil3Text[8] = {0};
+    char soil4Text[8] = {0};
+    const size_t soil1Length = static_cast<size_t>(comma1 - field1Start);
+    const size_t soil2Length = static_cast<size_t>(comma2 - field2Start);
+    const size_t soil3Length = static_cast<size_t>(comma3 - field3Start);
+    const size_t soil4Length = std::strlen(field4Start);
 
-    std::strncpy(soil1Text, separator + 1, std::min<size_t>(soil1Length, sizeof(soil1Text) - 1));
-    std::strncpy(soil2Text, comma + 1, std::min<size_t>(soil2Length, sizeof(soil2Text) - 1));
+    std::strncpy(soil1Text, field1Start, std::min<size_t>(soil1Length, sizeof(soil1Text) - 1));
+    std::strncpy(soil2Text, field2Start, std::min<size_t>(soil2Length, sizeof(soil2Text) - 1));
+    std::strncpy(soil3Text, field3Start, std::min<size_t>(soil3Length, sizeof(soil3Text) - 1));
+    std::strncpy(soil4Text, field4Start, std::min<size_t>(soil4Length, sizeof(soil4Text) - 1));
 
     soil1Value = static_cast<uint8_t>(std::atoi(soil1Text));
     soil2Value = static_cast<uint8_t>(std::atoi(soil2Text));
+    soil3Value = static_cast<uint8_t>(std::atoi(soil3Text));
+    soil4Value = static_cast<uint8_t>(std::atoi(soil4Text));
     return true;
 }
 
@@ -148,4 +178,14 @@ uint8_t PollService::soil1() const
 uint8_t PollService::soil2() const
 {
     return soil2Value;
+}
+
+uint8_t PollService::soil3() const
+{
+    return soil3Value;
+}
+
+uint8_t PollService::soil4() const
+{
+    return soil4Value;
 }
