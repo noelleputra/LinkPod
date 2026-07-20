@@ -4,6 +4,7 @@
 #include "communication/esp_now.h"
 #include "drivers/display.h"
 #include "drivers/pcf8563.h"
+#include "drivers/sdcard.h"
 
 class GatewayService
 {
@@ -19,6 +20,7 @@ private:
     PollService pollService;
     EspNow espNow;
     Display display;
+    SdCard sdCard;
     Pcf8563* rtc = nullptr;
     bool ledState = false;
     unsigned long lastDisplayRefreshMs = 0;

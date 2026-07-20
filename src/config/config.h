@@ -6,9 +6,9 @@
 // the previous duplication (RS485_EN_PIN here vs RS485_EN in pin.h).
 namespace config {
     constexpr uint32_t UART_BAUD = 9600;
-    constexpr uint32_t REQUEST_INTERVAL_MS = 40;
+    constexpr uint32_t REQUEST_INTERVAL_MS = 60;
     constexpr size_t LINE_BUFFER_SIZE = 64;
-    constexpr uint32_t RS485_TURNAROUND_US = 2000;
+    constexpr uint32_t RS485_TURNAROUND_US = 6000;
     constexpr uint8_t POLL_NODE_IDS[] = {1, 2, 3, 4};
     constexpr size_t POLL_NODE_COUNT = sizeof(POLL_NODE_IDS) / sizeof(POLL_NODE_IDS[0]);
     constexpr uint8_t MAX_RETRIES = 3;
@@ -29,7 +29,7 @@ namespace config {
     // loop() spins as fast as it can; redrawing the OLED on every single
     // tick would hammer the I2C bus for no visible benefit. This paces
     // the persistent status refresh independently of the poll cadence.
-    constexpr uint32_t DISPLAY_REFRESH_INTERVAL_MS = 250;
+    constexpr uint32_t DISPLAY_REFRESH_INTERVAL_MS = 150;
 
     constexpr uint8_t DISPLAY_WIDTH = 128;
     constexpr uint8_t DISPLAY_HEIGHT = 64;

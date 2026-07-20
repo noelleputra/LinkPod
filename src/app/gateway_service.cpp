@@ -12,6 +12,7 @@ void GatewayService::begin(Pcf8563* rtc)
     pollService.begin();
     espNow.begin();
     display.begin();
+    sdCard.begin(pin::SD_CS_PIN, pin::SD_MISO_PIN, pin::SD_MOSI_PIN, pin::SD_SCK_PIN, rtc);
 }
 
 void GatewayService::loop()
@@ -67,4 +68,5 @@ void GatewayService::loop()
     const uint8_t soil4 = pollService.soil4();
 
     espNow.send(nodeId, soil1, soil2, soil3, soil4);
+    sdCard.log(nodeId, soil1, soil2, soil3, soil4);
 }
